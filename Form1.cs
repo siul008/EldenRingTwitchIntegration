@@ -19,10 +19,7 @@ namespace Tricherie
 {
     public partial class Form1 : Form
     {
-        Bot bot;
         bool isBotHere = false;
-
-      
 
         public Form1()
         {
