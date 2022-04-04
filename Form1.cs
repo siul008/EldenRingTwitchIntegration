@@ -20,6 +20,7 @@ namespace Tricherie
     public partial class Form1 : Form
     {
         bool isBotHere = false;
+        static Bot bot;
 
         public Form1()
         {
@@ -39,7 +40,7 @@ namespace Tricherie
         {
            if(isBotHere == false)
             {
-                Bot bot = new Bot();
+                bot = new Bot();
                 isBotHere = true;
             } 
         }

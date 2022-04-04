@@ -1,10 +1,12 @@
-﻿using System;
+﻿using Newtonsoft.Json.Bson;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using TwitchLib.Client;
 using TwitchLib.Client.Events;
 using TwitchLib.Client.Models;
@@ -15,10 +17,13 @@ using TwitchLib.PubSub.Events;
 
 namespace Tricherie
 {
-    class Bot
+    public class Bot
     {
-        TwitchClient client;
-        readonly string musique = "custom-reward-id=f88c3bed-a091-4b9b-abd3-a27d7a684070";
+       public static TwitchClient client;
+        readonly string changeStatsId = "custom-reward-id=f88c3bed-a091-4b9b-abd3-a27d7a684070";
+        readonly string damageMeId = "custom-reward-id=43d90440-3213-4ec7-9dd1-158e3a679080";
+        readonly string healMeId = "custom-reward-id=6651b43a-47e4-4c3c-b899-cd0c0a2f145c";
+
         WriteMemory memoryWriter;
         string[] allStats = new string[] { "vigueur", "esprit", "endurance", "force", "dexterite", "intelligence", "foi", "esoterisme" };
         string stats;
@@ -26,6 +31,7 @@ namespace Tricherie
         string messageChoix;
         string messageValeur;
         bool erreurBool = false;
+       
 
         public Bot()
         {
@@ -54,7 +60,7 @@ namespace Tricherie
             Console.WriteLine($"{e.DateTime.ToString()}: {e.BotUsername} - {e.Data}");
             
             
-            if(e.Data.Contains(musique))
+            if(e.Data.Contains(changeStatsId))
             {
                 var myString = e.Data.ToString();
                 var splitString = myString.Split(':');
@@ -62,6 +68,21 @@ namespace Tricherie
                 Debug.WriteLine(message);
                 ChangeStats(message);
             }
+            else if(e.Data.Contains(damageMeId))
+            {
+                var myString = e.Data.ToString();
+                var splitString = myString.Split(':');
+                message = splitString[3].ToLower();
+                DamageMe(message);
+            }
+            else if (e.Data.Contains(healMeId))
+            {
+                var myString = e.Data.ToString();
+                var splitString = myString.Split(':');
+                message = splitString[3].ToLower();
+                HealMe(message);
+            }
+
         }
 
         private void Client_OnConnected(object sender, OnConnectedArgs e)
@@ -84,7 +105,7 @@ namespace Tricherie
 
         private void ChangeStats(string messageInput)
         {
-            var messageSplit = message.Split('.');
+            var messageSplit = message.Split('=');
             messageChoix = messageSplit[0];
             messageValeur = messageSplit[1];
             if (!Regex.IsMatch(messageValeur, @"[a-zA-Z]"))
@@ -123,13 +144,12 @@ namespace Tricherie
 
                 else
                 {
-                    client.SendMessage("siul008", $"Erreur de Syntaxe à : ( {messageChoix} ), le message doit ressembler à : vigueur:20");
+                    client.SendMessage("siul008", $"Erreur de Syntaxe à : ( {messageChoix} ), le message doit ressembler à : vigueur:1 ou foi:-1");
                     erreurBool = true;
                 }
 
                 if(erreurBool == false)
                 {
-                    client.SendMessage("siul008", $"Ma {stats} devient " + messageValeur);
                     memoryWriter.WriteOnMemoryStats(messageValeur, stats);
                 }
             }
@@ -137,6 +157,35 @@ namespace Tricherie
             {
                 client.SendMessage("siul008", $"Erreur de Syntaxe à : ( {messageValeur} ), le message doit ressembler à : vigueur:20");
             }
+        }
+        private void DamageMe(string damage)
+        {
+            if (!Regex.IsMatch(damage, @"[a-zA-Z]"))
+            {
+                memoryWriter.DamageAtmHp(damage);
+                client.SendMessage("siul008", $"Je rêve ou tu viens de me mettre {damage} dégats ?");
+            }
+            else
+            {
+                client.SendMessage("siul008", $"Erreur de Syntaxe à : ( {damage} ), le message doit ressembler à : 157");
+            }
+        }
+        private void HealMe(string heal)
+        {
+            if (!Regex.IsMatch(heal, @"[a-zA-Z]"))
+            {
+                memoryWriter.HealAtmHP(heal);
+                client.SendMessage("siul008", $"Merci pour les {heal} hp ! siul00Love ?");
+            }
+            else
+            {
+                client.SendMessage("siul008", $"Erreur de Syntaxe à : ( {heal} ), le message doit ressembler à : 157");
+            }
+            
+        }
+        public static void CreateMessage(string message)
+        {
+            client.SendMessage("siul008", message);
         }
 
     }
