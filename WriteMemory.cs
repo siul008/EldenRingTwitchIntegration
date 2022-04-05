@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Net.WebSockets;
@@ -19,6 +20,9 @@ namespace Tricherie
 {
     class WriteMemory
     {
+       public readonly string folderpath = @"C:\Users\"+ Environment.UserName + @"\Documents\EldenRingTwitchIntegration\";
+       public  readonly string vigueurTxt = "vigueur.txt", enduranceTxt = "endurance.txt", espritTxt = "esprit.txt", forceTxt = "force.txt", dexTxt = "dex.txt",
+            intelTxt = "intel.txt", foiTxt = "foi.txt", esoTxt = "eso.txt";
         MemoryHelper64 helper;
         ulong Level, Vigueur, Endurance, Esprit, Force, Dexterite, Intelligence, Foi, Esoterisme, hpActuel;
         int oldLevel, oldVigueur, oldEndurance, oldEsprit, oldForce, oldDexterite, oldIntelligence, oldFoi, oldEsoterisme;
@@ -28,8 +32,8 @@ namespace Tricherie
         int[] offsetEndu = { 0x8, 0x44 };
         int[] offsetEsprit = { 0x8, 0x40 };
         int[] offsetForce = { 0x8, 0x48 };
-        int[] offsetDex = { 0x8, 0x50 };
-        int[] offsetIntel = { 0x8, 0x3C };
+        int[] offsetDex = { 0x8, 0x4C };
+        int[] offsetIntel = { 0x8, 0x50 };
         int[] offsetFoi = { 0x8, 0x54 };
         int[] offsetEso = { 0x8, 0x58 };
         int[] offsetHp = { 0x0, 0x190, 0x0, 0x138 };
@@ -53,31 +57,46 @@ namespace Tricherie
                 Dexterite = MemoryUtils.OffsetCalculator(helper, statsBaseAddr, offsetDex);
                 Intelligence = MemoryUtils.OffsetCalculator(helper, statsBaseAddr, offsetIntel);
                 Foi = MemoryUtils.OffsetCalculator(helper, statsBaseAddr, offsetFoi);
-                Esoterisme = MemoryUtils.OffsetCalculator(helper, statsBaseAddr, offsetEso);
-
-                hpActuel = MemoryUtils.OffsetCalculator(helper, hpBaseAddr, offsetHp);
+                Esoterisme = MemoryUtils.OffsetCalculator(helper, statsBaseAddr, offsetEso);                
+                WriteStatsInFile();               
+            }
+            if (!Directory.Exists(folderpath))
+            {
+                Directory.CreateDirectory(folderpath);
+            }
+            if (!File.Exists(folderpath + vigueurTxt))
+            {
+                File.CreateText(folderpath + vigueurTxt);
+                File.CreateText(folderpath + enduranceTxt);
+                File.CreateText(folderpath + espritTxt);
+                File.CreateText(folderpath + forceTxt);
+                File.CreateText(folderpath + dexTxt);
+                File.CreateText(folderpath + intelTxt);
+                File.CreateText(folderpath + foiTxt);
+                File.CreateText(folderpath + esoTxt);
             }
         }
-        public void WriteOnMemoryStats(string numberString, string modifier)
+        public void WriteOnMemoryStats(string numberString, string modifier, bool isAdding)
         {
             if (p != null)
             {
                 int number = Convert.ToInt32(numberString);
-                if (number > 0)
+                if (isAdding)
                 {
                     number = 1;
-                    finalMessage = "Tu a ajouté 1 à ";
+                    finalMessage = "Tu as ajouté 1 à ";
                 }
-                else if (number == 0)
+                else if (isAdding == false)
+                {
+                    number = -1;
+                    finalMessage = "Tu as réduis de 1 ";
+                }
+                if (number == 0)
                 {
                     number = 0;
                     finalMessage = "Tu n'as rien changé à ";
                 }
-                else if(number < 0)
-                {
-                    number = -1;
-                    finalMessage = "Tu a réduis de 1 ";
-                }
+              
                 switch (modifier)
                 {
                     case "vigueur":
@@ -129,10 +148,10 @@ namespace Tricherie
 
                     case "force":
                         oldForce = helper.ReadMemory<int>(Force);
-                        if ((oldForce + number) < 1)
+                        if ((oldForce + number) < 5)
                         {
-                            modif = 1;
-                            finalMessage = $"La stat : {modifier} est déja à 1, je reste à 1";
+                            modif = 5;
+                            finalMessage = $"La stat : {modifier} est déja à 5, je reste à 5";
                         }
                         else
                         {
@@ -145,10 +164,10 @@ namespace Tricherie
 
                     case "dexterite":
                         oldDexterite = helper.ReadMemory<int>(Dexterite);
-                        if ((oldDexterite + number) < 1)
+                        if ((oldDexterite + number) < 5)
                         {
-                            modif = 1;
-                            finalMessage = $"La stat : {modifier} est déja à 1, je reste à 1";
+                            modif = 5;
+                            finalMessage = $"La stat : {modifier} est déja à 5, je reste à 5";
                         }
                         else
                         {
@@ -205,16 +224,23 @@ namespace Tricherie
                         break;
                 }
                 Bot.CreateMessage(finalMessage);
+                WriteStatsInFile();
                 finalMessage = "";
             }
         }
         public void DamageAtmHp(string damageString)
         {
+            hpActuel = MemoryUtils.OffsetCalculator(helper, hpBaseAddr, offsetHp);
             int damage = Convert.ToInt32(damageString);
             int hp = helper.ReadMemory<int>(hpActuel);
             if((hp - damage < 0))
             {
                 helper.WriteMemory(hpActuel, 20);
+            }
+            else if(damage == 0 || damage < 0)
+            {
+                helper.WriteMemory(hpActuel, hp - 10);
+                Bot.CreateMessage("Étrange demande");
             }
             else
             {
@@ -224,6 +250,7 @@ namespace Tricherie
         }
         public void HealAtmHP(string healString)
         {
+            hpActuel = MemoryUtils.OffsetCalculator(helper, hpBaseAddr, offsetHp);
             int heal = Convert.ToInt32(healString);
             int hp = helper.ReadMemory<int>(hpActuel);
             if(heal > 500)
@@ -235,6 +262,20 @@ namespace Tricherie
                 heal = 5;
             }
             helper.WriteMemory(hpActuel, hp+heal);
+        }
+        public void WriteStatsInFile()
+        {
+            if(p != null)
+            {
+                File.WriteAllText(folderpath + vigueurTxt, helper.ReadMemory<int>(Vigueur).ToString());
+                File.WriteAllText(folderpath + espritTxt, helper.ReadMemory<int>(Esprit).ToString());
+                File.WriteAllText(folderpath + enduranceTxt, helper.ReadMemory<int>(Endurance).ToString());
+                File.WriteAllText(folderpath + forceTxt, helper.ReadMemory<int>(Force).ToString());
+                File.WriteAllText(folderpath + dexTxt, helper.ReadMemory<int>(Dexterite).ToString());
+                File.WriteAllText(folderpath + foiTxt, helper.ReadMemory<int>(Foi).ToString());
+                File.WriteAllText(folderpath + intelTxt, helper.ReadMemory<int>(Intelligence).ToString());
+                File.WriteAllText(folderpath + esoTxt, helper.ReadMemory<int>(Esoterisme).ToString());
+            }
         }
     }
 }
